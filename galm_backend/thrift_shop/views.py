@@ -8,14 +8,25 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Cart, CartItem, Order, OrderItem, Product, Category
 from .serializers import CartItemSerializer, CartSerializer, LoginSerializers, OrderSerializer, ProductSerializer, CategorySerializer, RegisterSerializer, UserSerializer
-
-
+from rest_framework.pagination import PageNumberPagination
+import math
 #user detils
-@api_view(['GET'])
+
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def profile_view(request):
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+    user = request.user
+
+    if request.method == 'GET':
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = UserSerializer(user, data=request.data, partial=True)  # partial=True allows partial updates
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -187,11 +198,28 @@ class CheckoutView(APIView):
             "delivery_charge": delivery_charge,
             "total": total
         })
-  
-    
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def order_list_view(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')
-    serializer = OrderSerializer(orders, many=True)
-    return Response(serializer.data)
+    
+    # Create a paginator
+    paginator = PageNumberPagination()
+    paginator.page_size = 2  # Number of orders per page
+    paginated_orders = paginator.paginate_queryset(orders, request)
+    
+    serializer = OrderSerializer(paginated_orders, many=True)
+    
+    # Calculate total pages
+    total_items = orders.count()
+    total_pages = math.ceil(total_items / paginator.page_size)
+    
+    # Get default paginated response
+    response = paginator.get_paginated_response(serializer.data)
+    
+    # Add total_pages to response data
+    response.data['total_pages'] = total_pages
+    
+    return response
+

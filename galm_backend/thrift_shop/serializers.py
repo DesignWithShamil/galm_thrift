@@ -126,4 +126,5 @@ class OrderSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "date_joined"]       
+        fields = ["id", "username", "email", "date_joined"]  
+        read_only_fields = ["id", "date_joined"]     
