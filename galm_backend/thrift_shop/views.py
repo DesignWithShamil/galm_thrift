@@ -12,31 +12,158 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.response import Response
 from .permissions import IsAdminRole
 from django.db import transaction
-from .models import Cart, CartItem, Colour, Order, OrderItem, Product, Category, ProductMedia, ProductVariant, Quality, Size
-from .serializers import CartItemSerializer, CartSerializer, ColourSerializer, LoginSerializers, OrderSerializer, ProductMediaSerializer, ProductSerializer, CategorySerializer, ProductVariantSerializer, ProfileUpdateSerializer, QualitySerializer, RegisterSerializer, SizeSerializer, UserSerializer
+from .models import Cart, CartItem, Colour, Order, OrderItem, Product, Category, ProductMedia, ProductVariant, Quality, Size,HomeImage,HomeVideo
+from .serializers import CartItemSerializer, CartSerializer, ColourSerializer, LoginSerializers, OrderSerializer, ProductMediaSerializer, ProductSerializer, CategorySerializer, ProductVariantSerializer, ProfileUpdateSerializer, QualitySerializer, RegisterSerializer, SizeSerializer, UserSerializer,HomeImageSerializer,HomeVideoSerializer
 from rest_framework.pagination import PageNumberPagination
 import math
-#user detils
+
+
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminRole])
 def admin_dashboard(request):
     return Response({"message": "Welcome Admin"})
 
-# Category view for admin
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated, IsAdminRole])
-def category_list_create(request):
-    if request.method == 'GET':
-        categories = Category.objects.all()
-        serializer = CategorySerializer(categories, many=True)
-        return Response(serializer.data)
 
-    if request.method == 'POST':
-        serializer = CategorySerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
+
+
+
+#user detils
+# homepage images
+# GET view
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_home_images(request):
+    images = HomeImage.objects.all()
+    serializer = HomeImageSerializer(images, many=True)
+    return Response(serializer.data)
+
+
+# POST view (Admin only)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminRole])
+def create_home_image(request):
+    serializer = HomeImageSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated, IsAdminRole])
+def update_delete_home_image(request, pk):
+
+    try:
+        image = HomeImage.objects.get(pk=pk)
+    except HomeImage.DoesNotExist:
+        return Response(
+            {"error": "Home image not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # 🔥 PATCH (Partial Update)
+    if request.method == 'PATCH':
+        serializer = HomeImageSerializer(
+            image,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=201)
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # 🔥 DELETE
+    if request.method == 'DELETE':
+        image.delete()
+        return Response(
+            {"message": "Home image deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+
+# homepage videos
+# GET (Public)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_home_videos(request):
+    videos = HomeVideo.objects.all()
+    serializer = HomeVideoSerializer(videos, many=True)
+    return Response(serializer.data)
+
+
+# POST (Admin Only)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminRole])
+def create_home_video(request):
+    serializer = HomeVideoSerializer(data=request.data)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# PATCH & DELETE (Admin Only)
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated, IsAdminRole])
+def update_delete_home_video(request, pk):
+
+    try:
+        video = HomeVideo.objects.get(pk=pk)
+    except HomeVideo.DoesNotExist:
+        return Response(
+            {"error": "Home video not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # 🔥 PATCH (Partial Update)
+    if request.method == 'PATCH':
+        serializer = HomeVideoSerializer(
+            video,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # 🔥 DELETE
+    if request.method == 'DELETE':
+        video.delete()
+        return Response(
+            {"message": "Home video deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+
+
+
+# GET – List all categories (admin only)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def category_list(request):
+    categories = Category.objects.all()
+    serializer = CategorySerializer(categories, many=True)
+    return Response(serializer.data)
+
+
+# POST – Create a new category (admin only)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminRole])
+def category_create(request):
+    serializer = CategorySerializer(data=request.data)
+    if serializer.is_valid(raise_exception=True):
+        serializer.save()
+        return Response(serializer.data, status=201)
 
 
 
@@ -129,20 +256,23 @@ def media_list_create(request):
 
         
 
-# Quality view for admin
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated, IsAdminRole])
-def quality_list_create(request):
-    if request.method == 'GET':
-        qualities = Quality.objects.all()
-        serializer = QualitySerializer(qualities, many=True)
-        return Response(serializer.data)
+# GET – List all qualities (allow only)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def quality_list(request):
+    qualities = Quality.objects.all()
+    serializer = QualitySerializer(qualities, many=True)
+    return Response(serializer.data)
 
-    if request.method == 'POST':
-        serializer = QualitySerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data, status=201)
+
+# POST – Create a new quality (admin only)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminRole])
+def quality_create(request):
+    serializer = QualitySerializer(data=request.data)
+    if serializer.is_valid(raise_exception=True):
+        serializer.save()
+        return Response(serializer.data, status=201)
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated, IsAdminRole])
@@ -384,11 +514,11 @@ def colour_detail(request, pk):
 
 
 
-@api_view(['GET'])
-def category_list(request):
-    categories = Category.objects.prefetch_related('product_set').all()
-    serializer = CategorySerializer(categories, many=True)
-    return Response(serializer.data)
+# @api_view(['GET'])
+# def category_list(request):
+#     categories = Category.objects.prefetch_related('product_set').all()
+#     serializer = CategorySerializer(categories, many=True)
+#     return Response(serializer.data)
 
 class RegisterAPI(APIView):
     permission_classes = [AllowAny]

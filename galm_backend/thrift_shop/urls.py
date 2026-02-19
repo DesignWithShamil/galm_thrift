@@ -12,11 +12,13 @@ urlpatterns = [
     path('products/create/', product_create, name='product-create'),
 
     # ------------------ CATEGORIES ------------------
-    path('categories/', category_list_create, name='category-list-create'),
+     path('categories/', category_list, name='category-list'),        # GET
+    path('categories/create/', category_create, name='category-create'),  # POST
     path('categories/<int:pk>/', category_update_delete, name='category-update-delete'),
 
     # ------------------ QUALITIES ------------------
-    path('qualities/', quality_list_create, name='quality-list-create'),
+    path('qualities/', quality_list, name='quality-list'),
+    path('qualities/create/', quality_create, name='quality-create'),
     path('qualities/<int:pk>/', quality_update_delete, name='quality-update-delete'),
 
     # ------------------ SIZES ------------------
@@ -54,4 +56,21 @@ urlpatterns = [
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
     path('admin/orders/', admin_order_list, name='admin-order-list'),  # GET all orders
     path('admin/orders/<int:order_id>/update-status/', update_order_status, name='update-order-status'),  # PATCH
+    
+     # ================== home imges ==================
+    #  GET (Public)
+    path('home-images/', get_home_images, name='get-home-images'),
+
+    #  POST (Admin Only)
+    path('home-images/create/', create_home_image, name='create-home-image'),
+
+    #  PATCH & DELETE (Admin Only)
+    path('home-images/<int:pk>/', update_delete_home_image, name='update-delete-home-image'),
+    
+     # ================== home vedios ==================
+    path('home-videos/', get_home_videos, name='get-home-videos'),
+    path('home-videos/create/', create_home_video, name='create-home-video'),
+    path('home-videos/<int:pk>/', update_delete_home_video, name='update-delete-home-video'), 
+   
+
 ]

@@ -1,6 +1,24 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from django.db import models
+
+class HomeImage(models.Model):
+    image = models.ImageField(upload_to="home_images/desktop/")
+    mobile_image = models.ImageField(upload_to="home_images/mobile/")
+
+    def __str__(self):
+        return f"Home Image {self.id}"
+
+
+class HomeVideo(models.Model):
+    video = models.FileField(upload_to="home_videos/desktop/")
+    mobile_video = models.FileField(upload_to="home_videos/mobile/")
+
+    def __str__(self):
+        return f"Home Video {self.id}"
+
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100,unique=True)

@@ -2,9 +2,20 @@ import re, json
 from rest_framework import serializers
 from .models import (
     Colour, Order, OrderItem, Product, Category, ProductMedia,
-    ProductVariant, Quality, Cart, CartItem, Size
+    ProductVariant, Quality, Cart, CartItem, Size,HomeImage,HomeVideo
 )
 from django.contrib.auth.models import User
+
+class HomeImageSerializer(serializers.ModelSerializer):
+    class Meta:   
+        model = HomeImage
+        fields = ['id', 'image', 'mobile_image']
+
+class HomeVideoSerializer(serializers.ModelSerializer):
+    class Meta:   
+        model = HomeVideo
+        fields = ['id', 'video', 'mobile_video']
+
 
 
 # ---------------- CATEGORY & QUALITY ----------------
