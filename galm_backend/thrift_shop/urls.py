@@ -45,6 +45,8 @@ urlpatterns = [
     # ------------------ CHECKOUT ------------------
     path("checkout/", CheckoutView.as_view(), name="checkout"),
 
+    # ------------------ BUYNOW ------------------
+    path("buy-now/<int:product_id>/", buy_now, name="buy_now"),
     # ------------------ PROFILE ------------------
     path("profile/", profile_view, name="profile"),
 
@@ -71,6 +73,7 @@ urlpatterns = [
     path('home-videos/', get_home_videos, name='get-home-videos'),
     path('home-videos/create/', create_home_video, name='create-home-video'),
     path('home-videos/<int:pk>/', update_delete_home_video, name='update-delete-home-video'), 
+
    
 
 ]

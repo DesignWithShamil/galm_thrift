@@ -662,16 +662,16 @@ class UpdateCartItemView(APIView):
         serializer = CartItemSerializer(cart_item)
         return Response(serializer.data)
 
-#checkout
 class CheckoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        cart = Cart.objects.get(user=request.user)
-        cart_items = cart.items.all()
 
-        if not cart_items:
-            return Response({"error": "Cart is empty"}, status=400)
+        # 🔥 Check if this is direct buy
+        product_id = request.data.get("product_id")
+        colour_id = request.data.get("colour_id")
+        size_id = request.data.get("size_id")
+        quantity = request.data.get("quantity")
 
         customer_name = request.data.get("customer_name")
         house_name = request.data.get("house_name")
@@ -680,59 +680,126 @@ class CheckoutView(APIView):
         mobile_number = request.data.get("mobile_number")
 
         if not all([customer_name, house_name, place, pincode, mobile_number]):
-            return Response({"error": "All fields are required"}, status=400)
+            return Response({"error": "All address fields are required"}, status=400)
 
-        subtotal = sum(item.get_total_price() for item in cart_items)
+        with transaction.atomic():
 
-        if subtotal <= 1000:
-            delivery_charge = 80
-        elif subtotal <= 2000:
-            delivery_charge = 160
-        elif subtotal <= 3000:
-            delivery_charge = 220
-        else:
-            delivery_charge = 0
+            # ========================================
+            # ⚡ DIRECT BUY FLOW
+            # ========================================
+            if product_id and colour_id and size_id:
 
-        total = subtotal + delivery_charge
+                quantity = int(quantity or 1)
 
-        with transaction.atomic():   # 🔥 IMPORTANT
-            order = Order.objects.create(
-                user=request.user,
-                customer_name=customer_name,
-                total_price=total,
-                house_name=house_name,
-                place=place,
-                pincode=pincode,
-                mobile_number=mobile_number,
-                is_paid=False
-            )
+                product = get_object_or_404(Product, id=product_id)
+                colour = get_object_or_404(Colour, id=colour_id)
+                size = get_object_or_404(Size, id=size_id)
 
-            for item in cart_items:
                 variant = get_object_or_404(
                     ProductVariant,
-                    product=item.product,
-                    colour=item.colour,
-                    size=item.size,
+                    product=product,
+                    colour=colour,
+                    size=size,
                 )
 
-                if variant.stock < item.quantity:
-                    raise ValueError(
-                        f"Not enough stock for {item.product.name}"
-                    )
+                if variant.stock < quantity:
+                    return Response({"error": "Not enough stock"}, status=400)
 
-                variant.stock -= item.quantity
+                subtotal = product.price * quantity
+
+                variant.stock -= quantity
                 variant.save()
+
+                order = Order.objects.create(
+                    user=request.user,
+                    customer_name=customer_name,
+                    total_price=0,  # temp
+                    house_name=house_name,
+                    place=place,
+                    pincode=pincode,
+                    mobile_number=mobile_number,
+                    is_paid=False
+                )
 
                 OrderItem.objects.create(
                     order=order,
-                    product=item.product,
-                    colour=item.colour,
-                    size=item.size,
-                    quantity=item.quantity,
-                    price=item.product.price
+                    product=product,
+                    colour=colour,
+                    size=size,
+                    quantity=quantity,
+                    price=product.price
                 )
 
-            cart_items.delete()
+            # ========================================
+            # 🛒 CART FLOW
+            # ========================================
+            else:
+                cart = Cart.objects.get(user=request.user)
+                cart_items = cart.items.all()
+
+                if not cart_items:
+                    return Response({"error": "Cart is empty"}, status=400)
+
+                subtotal = 0
+
+                order = Order.objects.create(
+                    user=request.user,
+                    customer_name=customer_name,
+                    total_price=0,
+                    house_name=house_name,
+                    place=place,
+                    pincode=pincode,
+                    mobile_number=mobile_number,
+                    is_paid=False
+                )
+
+                for item in cart_items:
+                    variant = get_object_or_404(
+                        ProductVariant,
+                        product=item.product,
+                        colour=item.colour,
+                        size=item.size,
+                    )
+
+                    if variant.stock < item.quantity:
+                        return Response(
+                            {"error": f"Not enough stock for {item.product.name}"},
+                            status=400
+                        )
+
+                    variant.stock -= item.quantity
+                    variant.save()
+
+                    subtotal += item.get_total_price()
+
+                    OrderItem.objects.create(
+                        order=order,
+                        product=item.product,
+                        colour=item.colour,
+                        size=item.size,
+                        quantity=item.quantity,
+                        price=item.product.price
+                    )
+
+                cart_items.delete()
+
+            # ========================================
+            # 🚚 DELIVERY CALCULATION (COMMON)
+            # ========================================
+
+            if subtotal <= 1000:
+                delivery_charge = 80
+            elif subtotal <= 2000:
+                delivery_charge = 160
+            elif subtotal <= 3000:
+                delivery_charge = 220
+            else:
+                delivery_charge = 0
+
+            total = subtotal + delivery_charge
+
+            order.total_price = total
+            order.save()
 
         return Response({
             "message": "Order created successfully",
@@ -741,7 +808,6 @@ class CheckoutView(APIView):
             "delivery_charge": delivery_charge,
             "total": total
         })
-
 # ---------------- User Order List (paginated) ----------------
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -819,3 +885,41 @@ def update_order_status(request, order_id):
     order.status = status
     order.save()
     return Response({"message": "Status updated"})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def buy_now(request, product_id):
+
+    colour_id = request.data.get("colour_id")
+    size_id = request.data.get("size_id")
+    quantity = int(request.data.get("quantity", 1))
+
+    if not all([colour_id, size_id]):
+        return Response({"error": "Product details required"}, status=400)
+
+    product = get_object_or_404(Product, id=product_id)
+    colour = get_object_or_404(Colour, id=colour_id)
+    size = get_object_or_404(Size, id=size_id)
+
+    variant = get_object_or_404(
+        ProductVariant,
+        product=product,
+        colour=colour,
+        size=size,
+    )
+
+    if variant.stock < quantity:
+        return Response({"error": "Not enough stock"}, status=400)
+
+    return Response({
+        "message": "Proceed to checkout",
+        "product_id": product.id,
+        "product_name": product.name,
+        "product_price": product.price,
+        "colour_id": colour.id,
+        "colour_name": colour.name,
+        "size_id": size.id,
+        "size_name": size.name,
+        "quantity": quantity,
+    })
