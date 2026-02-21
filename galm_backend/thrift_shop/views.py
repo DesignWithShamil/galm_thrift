@@ -16,7 +16,7 @@ from .models import Cart, CartItem, Colour, Order, OrderItem, Product, Category,
 from .serializers import CartItemSerializer, CartSerializer, ColourSerializer, LoginSerializers, OrderSerializer, ProductMediaSerializer, ProductSerializer, CategorySerializer, ProductVariantSerializer, ProfileUpdateSerializer, QualitySerializer, RegisterSerializer, SizeSerializer, UserSerializer,HomeImageSerializer,HomeVideoSerializer
 from rest_framework.pagination import PageNumberPagination
 import math
-
+from django.db.models import Q
 
 
 
@@ -424,13 +424,16 @@ def product_detail(request, id):
 @permission_classes([AllowAny])
 def product_list(request):
     products = Product.objects.all()
-
+    
+    
     name = request.GET.get("name")
     type_ = request.GET.get("type")
     category = request.GET.get("category")
     quality = request.GET.get("quality")
     min_price = request.GET.get("min_price")
     max_price = request.GET.get("max_price")
+    stock_status = request.GET.get("stock")
+    latest = request.GET.get("latest")  # ?latest=true
 
     if name:
         products = products.filter(name__icontains=name)
@@ -444,6 +447,16 @@ def product_list(request):
         products = products.filter(price__gte=min_price)
     if max_price:
         products = products.filter(price__lte=max_price)
+    if stock_status == "in":
+        products = products.filter(variants__stock__gt=0).distinct()
+
+    elif stock_status == "out":
+        products = products.exclude(variants__stock__gt=0).distinct()  
+
+    if latest == "true":
+        products = products.order_by('-created_at')[:3]
+    else:
+        products = products.order_by('-created_at')      
 
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
