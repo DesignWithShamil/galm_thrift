@@ -383,43 +383,36 @@ def profile_view(request):
             return Response(UserSerializer(user).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([AllowAny])  # allow entry
-def product_detail(request, id):
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([AllowAny])
+def product_detail(request, pk):
     try:
-        product = Product.objects.get(id=id)
+        product = Product.objects.get(pk=pk)
     except Product.DoesNotExist:
         return Response({"error": "Product not found"}, status=404)
 
-    # ✅ PUBLIC GET
-    if request.method == 'GET':
+    # Public GET
+    if request.method == "GET":
         serializer = ProductSerializer(product, context={"request": request})
         return Response(serializer.data)
 
-    # 🔒 ADMIN ONLY for PUT & DELETE
-    if not request.user.is_authenticated or not request.user.is_admin:
-        return Response(
-            {"error": "Admin access required"},
-            status=status.HTTP_403_FORBIDDEN
-        )
+    # Admin only PUT/DELETE
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return Response({"error": "Admin access required"}, status=403)
 
-    if request.method == 'PUT':
+    if request.method == "PUT":
         serializer = ProductSerializer(
-            product,
-            data=request.data,
-            partial=True,
-            context={"request": request}
+            product, data=request.data, partial=True, context={"request": request}
         )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
-    elif request.method == 'DELETE':
+    if request.method == "DELETE":
         product.delete()
         return Response(status=204)
-
-
+    
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def product_list(request):
@@ -454,7 +447,7 @@ def product_list(request):
         products = products.exclude(variants__stock__gt=0).distinct()  
 
     if latest == "true":
-        products = products.order_by('-created_at')[:3]
+        products = products.order_by('-created_at')[:10]
     else:
         products = products.order_by('-created_at')      
 

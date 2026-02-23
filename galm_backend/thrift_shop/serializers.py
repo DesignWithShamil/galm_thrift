@@ -110,6 +110,7 @@ class ProductSerializer(serializers.ModelSerializer):
             name=validated_data.get("name"),
             description=validated_data.get("description"),
             price=validated_data.get("price"),
+            full_price = validated_data.get("full_price"),
             category=validated_data.get("category"),
             quality=validated_data.get("quality"),
         )

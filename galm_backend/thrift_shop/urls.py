@@ -4,11 +4,11 @@ from .views import *
 urlpatterns = [
     # ------------------ AUTH ------------------
     path('register/', RegisterAPI.as_view(), name='register'),
-    path('login/', LoginAPI.as_view(), name='login'),
+    path('login/', LoginAPI.as_view(), name='login'), 
 
     # ------------------ PRODUCTS ------------------
     path('products/', product_list, name='product-list'),
-    path('products/<int:id>/', product_detail, name='product-detail'),
+    path('products/<int:pk>/', product_detail, name='product-detail'),
     path('products/create/', product_create, name='product-create'),
 
     # ------------------ CATEGORIES ------------------
